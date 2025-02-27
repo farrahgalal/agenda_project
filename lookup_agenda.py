@@ -14,13 +14,15 @@ from db_table import db_table
 
 def lookup_agenda(column, value):
     agenda_table = db_table("agenda", {
+    "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
     "date": "TEXT NOT NULL",
     "time_start": "TEXT NOT NULL",
     "time_end": "TEXT",
     "title": "TEXT NOT NULL",
     "location": "TEXT",
     "description": "TEXT",
-    "speakers": "TEXT"
+    "speakers": "TEXT",
+    "parent_id": "INTEGER"
     })
 
     records = agenda_table.select()  # Fetch all records
@@ -34,19 +36,31 @@ def lookup_agenda(column, value):
     # based on the column and the value, perform the lookup in the table
     if column == "speaker":
         # there can be multiple speakers so search within the list of speakers
-        rows = agenda_table.select(where={"speakers": "%{}%".format(value)})
+        sessions = agenda_table.select(where={"speakers": "%{}%".format(value)})
     else:
         # for all columns except speaker, we can do an exact match
-        rows = agenda_table.select(where={column: value})
+        sessions = agenda_table.select(where={column: value})
 
+    #------------------logic for fetching subsessions-----------------------------#
     #check for sub sessions related to those sessions
-    sub_sessions_lst = []
+    #sub_sessions_lst = []
     #for i in rows, iterate over rows
         #sub_sessions = agenda_table.select(where={parent_id: "{}.format(row["id"])"})
         #sub_sessions_lst.extend(sub_sessions)
-    
 
-    print(rows)
+    all_sessions = []
+
+    for session in sessions:
+        all_sessions.append(session)
+
+        subsessions = agenda_table.select(where={"parent_id": session["id"]})
+        all_sessions.extend(subsessions)
+
+    for session in all_sessions:
+        print(session)
+    #-------------------------------------------------------------------------------#
+
+    #print(sessions)
 
 if __name__ == "__main__":
     column = sys.argv[1]

@@ -20,6 +20,7 @@ def import_agenda(filename):
 
     # database table schema 
     agenda_table = db_table("agenda", {
+        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
         "date": "TEXT NOT NULL",
         "time_start": "TEXT NOT NULL",
         "time_end": "TEXT",
@@ -28,7 +29,7 @@ def import_agenda(filename):
         "location": "TEXT",
         "description": "TEXT",
         "speakers": "TEXT",
-        #"parent_id": "INTEGER"
+        "parent_id": "INTEGER"
     })
 
     parent_id = None
@@ -40,13 +41,8 @@ def import_agenda(filename):
                 # if doesnt have parent_id, meaning that prev row is a main session, assign id
         session_type = row[3] if row[3] else None  
 
-        if session_type == "Sub":
-            if parent_id is not None:
-                data["parent_id"] = parent_id
-            else:
-                continue
-        else:
-            parent_id = None
+        if session_type != "Sub":
+            parent_id = None  
 
         data = {
             "date": row[0] if row[0] else None,
@@ -60,25 +56,16 @@ def import_agenda(filename):
             "parent_id": parent_id
         }
 
-
         # date, time_start, title all must not be NULL
         if not data["date"] or not data["time_start"] or not data["title"]:
             continue  
 
-        # check to see if row exists
-        existing_rows = agenda_table.select(
-            where={
-                "title": data["title"],
-                "date": data["date"],
-                "time_start": data["time_start"]
-            }
-        )
+        session_id = agenda_table.insert(data)
 
-        # if it does not exist -> insert (avoid repeats)
-        if not existing_rows:
-            agenda_table.insert(data)
+        if session_type != "Sub":
+            parent_id = session_id
 
-    records = agenda_table.select()  # Fetch all records
+    #records = agenda_table.select() 
     #------testing purposes---------#
     #if records:
         #print("\nAgenda Table:")
