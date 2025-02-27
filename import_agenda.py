@@ -11,43 +11,63 @@
 
 import sqlite3
 import sys
-import pandas as pd
 from db_table import db_table
+import xlrd  # library for .xls files
 
 def import_agenda(filename):
-    # reads excel file, filename -> path to excel file
-    df = pd.read_excel(filename)
+    wb = xlrd.open_workbook(filename)
+    sheet = wb.sheet_by_index(0)  
 
+    # database table schema 
     agenda_table = db_table("agenda", {
-        "agenda_id": "INTEGER PRIMARY KEY AUTOINCREMENT",
-		"date": "TEXT NOT NULL",
-		"time_start": "TEXT",
-		"time_end": "TEXT",
-        "type": "TEXT", #session or subsessions
-		"title": "TEXT",
-		"location": "TEXT",
-		"description": "TEXT",
-		"speaker": "TEXT"
+        "date": "TEXT NOT NULL",
+        "time_start": "TEXT NOT NULL",
+        "time_end": "TEXT",
+        "title": "TEXT NOT NULL",
+        "location": "TEXT",
+        "description": "TEXT",
+        "speakers": "TEXT"
     })
 
-    for index, row in df.iterrows():
-        if index >= 16:
-            data = {
-                "date": row.iloc[0],
-                "time_start": row.iloc[1],
-                "time_end": row.iloc[2],
-                "type": row.iloc[3],
-                "title" : row.iloc[4],
-                "location" : row.iloc[5] if row.iloc[5] else None,
-                "description" : row.iloc[6] if row.iloc[6] else None,
-                "speaker" : row.iloc[7] if row.iloc[7] else None
+    for row_idx in range(14, sheet.nrows):
+        row = sheet.row_values(row_idx)  
+
+        if len(row) < 8: 
+            continue
+
+        data = {
+            "date": row[0] if row[0] else None,
+            "time_start": row[1] if row[1] else None,
+            "time_end": row[2] if row[2] else None,
+            "title": row[4].replace("'", "''") if isinstance(row[4], str) else None,
+            "location": row[5].replace("'", "''") if isinstance(row[5], str) else None,
+            "description": row[6].replace("'", "''") if isinstance(row[6], str) else None,
+            "speakers": row[7].replace("'", "''") if isinstance(row[7], str) else None,
+        }
+
+
+        # date, time_start, title all must not be NULL
+        if not data["date"] or not data["time_start"] or not data["title"]:
+            continue  # Skip invalid rows
+
+        # check to see if row exists
+        existing_rows = agenda_table.select(
+            where={
+                "title": data["title"],
+                "date": data["date"],
+                "time_start": data["time_start"]
             }
-  
-            agenda_table.insert(data)    
-            print(agenda_table.all())
+        )
+
+        # if it does not exist -> insert (avoid repeats)
+        if not existing_rows:
+            agenda_table.insert(data)
 
     agenda_table.close()
-    print("success")
+    print("Agenda import successful.")
 
 if __name__ == "__main__":
-    import_agenda(sys.argv[1]) # only argument in the command line is the filename 
+    if len(sys.argv) != 2:
+        print("Usage: python import_agenda.py agenda.xls")
+    else:
+        import_agenda(sys.argv[1])
