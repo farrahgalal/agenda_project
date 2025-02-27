@@ -23,32 +23,47 @@ def import_agenda(filename):
         "date": "TEXT NOT NULL",
         "time_start": "TEXT NOT NULL",
         "time_end": "TEXT",
+        #"type": "TEXT",
         "title": "TEXT NOT NULL",
         "location": "TEXT",
         "description": "TEXT",
-        "speakers": "TEXT"
+        "speakers": "TEXT",
+        #"parent_id": "INTEGER"
     })
+
+    parent_id = None
 
     for row_idx in range(14, sheet.nrows):
         row = sheet.row_values(row_idx)  
+        # if session is sub or main session
+            # if sub, check if previous has a parent_id and assign that parent id to it
+                # if doesnt have parent_id, meaning that prev row is a main session, assign id
+        session_type = row[3] if row[3] else None  
 
-        if len(row) < 8: 
-            continue
+        if session_type == "Sub":
+            if parent_id is not None:
+                data["parent_id"] = parent_id
+            else:
+                continue
+        else:
+            parent_id = None
 
         data = {
             "date": row[0] if row[0] else None,
             "time_start": row[1] if row[1] else None,
             "time_end": row[2] if row[2] else None,
-            "title": row[4].replace("'", "''") if isinstance(row[4], str) else None,
+            #"type": row[3].replace("'", "''") if isinstance(row[3], str) else None, 
+            "title": row[4].replace("'", "''") if isinstance(row[4], str) else None, 
             "location": row[5].replace("'", "''") if isinstance(row[5], str) else None,
             "description": row[6].replace("'", "''") if isinstance(row[6], str) else None,
             "speakers": row[7].replace("'", "''") if isinstance(row[7], str) else None,
+            "parent_id": parent_id
         }
 
 
         # date, time_start, title all must not be NULL
         if not data["date"] or not data["time_start"] or not data["title"]:
-            continue  # Skip invalid rows
+            continue  
 
         # check to see if row exists
         existing_rows = agenda_table.select(
@@ -63,11 +78,16 @@ def import_agenda(filename):
         if not existing_rows:
             agenda_table.insert(data)
 
+    records = agenda_table.select()  # Fetch all records
+    #------testing purposes---------#
+    #if records:
+        #print("\nAgenda Table:")
+        #for record in records:
+            #print(record)
+    #--------------------------------#
+
     agenda_table.close()
-    print("Agenda import successful.")
+    print("Agenda import successful")
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python import_agenda.py agenda.xls")
-    else:
-        import_agenda(sys.argv[1])
+    import_agenda(sys.argv[1])
